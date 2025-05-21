@@ -48,10 +48,9 @@
     <div class="types" id="type-buttons"></div>
     <h3>Guess the Region</h3>
     <div class="regions" id="region-buttons"></div>
-    <button onclick="submitAnswer()">Submit</button>
+    <button id="submit-btn" onclick="handleButtonClick()">Submit</button>
     <p id="feedback"></p>
     <p id="score"></p>
-    <button onclick="newGame()">Next Pokémon</button>
   </div>
 
   <script>
@@ -80,6 +79,7 @@
     let score = 0;
     let round = 1;
     const maxRounds = 10;
+    let answered = false;
 
     async function fetchRandomPokemon() {
       const maxPokemonId = 1010;
@@ -104,10 +104,12 @@
 
     async function newGame() {
       if (round > maxRounds) {
-        document.getElementById("game").innerHTML = `<h2>Game Over!</h2><p>Your final score is ${score}</p>`;
+        document.getElementById("game").innerHTML = `<h2>Game Over!</h2><p>Your final score is ${score} out of 60</p><button onclick="restartGame()">Restart</button>`;
         return;
       }
 
+      answered = false;
+      document.getElementById("submit-btn").textContent = "Submit";
       document.getElementById("feedback").textContent = "";
       document.getElementById("score").textContent = `Round ${round} of ${maxRounds} | Score: ${score}`;
       selectedTypes.clear();
@@ -151,6 +153,17 @@
       button.classList.add("selected");
     }
 
+    function handleButtonClick() {
+      if (!answered) {
+        submitAnswer();
+        answered = true;
+        document.getElementById("submit-btn").textContent = "Next";
+      } else {
+        round++;
+        newGame();
+      }
+    }
+
     function submitAnswer() {
       const correctTypes = new Set(currentPokemon.types);
       const selected = Array.from(selectedTypes);
@@ -158,31 +171,35 @@
       const feedback = document.getElementById("feedback");
       let roundScore = 0;
 
+      let result = "Almost 🟡";
       if (correctSelections.length === correctTypes.size && selected.length === correctTypes.size) {
-        feedback.textContent = "✅ Correct!";
-        roundScore += 5;
-      } else if (correctSelections.length === 1 && selected.length === 1) {
-        feedback.textContent = `🟡 Almost! One type correct. Type(s): ${currentPokemon.types.join(", ")}`;
-        roundScore += 3;
-      } else if (correctSelections.length === 1 && selected.length === 2) {
-        feedback.textContent = `🟡 Almost! One correct, one incorrect. Type(s): ${currentPokemon.types.join(", ")}`;
-        roundScore += 2;
-      } else if (correctSelections.length > 0) {
-        feedback.textContent = `🟡 Partial. ${correctSelections.length} correct. Type(s): ${currentPokemon.types.join(", ")}`;
-        roundScore += correctSelections.length;
+        roundScore = 5;
+        result = "Almost ✅";
+      } else if (correctSelections.length === selected.length && correctSelections.length > 0) {
+        roundScore = 3;
+      } else if (correctSelections.length === 1) {
+        roundScore = 2;
       } else {
-        feedback.textContent = `❌ Wrong! Type(s): ${currentPokemon.types.join(", ")}`;
+        result = "Incorrect ❌";
       }
 
       if (selectedRegion === currentPokemon.region) {
         roundScore += 1;
-        feedback.textContent += ` +1 for region guess!`;
+        result += "✅";
       } else {
-        feedback.textContent += ` Region was: ${currentPokemon.region}`;
+        result += "❌";
       }
 
+      if (roundScore >= 6) result = "Correct ✅✅";
+
+      feedback.textContent = `${result}. Type(s): ${[...correctTypes].join(", ")}, Region: ${currentPokemon.region}`;
+      const previousScore = score;
       score += roundScore;
-      round++;
+      document.getElementById("score").textContent = `Round ${round} of ${maxRounds} | Score: ${previousScore} + ${roundScore}`;
+    }
+
+    function restartGame() {
+      location.reload();
     }
 
     newGame();
