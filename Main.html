@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Guess the Pokémon Type</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 2rem;
+    }
+    img {
+      height: 150px;
+    }
+    .types {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 1rem 0;
+    }
+    .types button {
+      padding: 0.5rem 1rem;
+      border: none;
+      background-color: #eee;
+      cursor: pointer;
+      border-radius: 5px;
+      transition: 0.3s;
+    }
+    .types button:hover {
+      background-color: #ddd;
+    }
+    #feedback {
+      font-size: 1.2rem;
+      margin-top: 1rem;
+    }
+    .selected {
+      background-color: #cfc !important;
+    }
+  </style>
+</head>
+<body>
+  <h1>Guess the Pokémon Type</h1>
+  <div id="game">
+    <h2 id="pokemon-name"></h2>
+    <img id="pokemon-img" src="" alt="Pokémon Sprite" />
+    <div class="types" id="type-buttons"></div>
+    <button onclick="submitAnswer()">Submit</button>
+    <p id="feedback"></p>
+    <button onclick="newGame()">Next Pokémon</button>
+  </div>
+
+  <script>
+    const types = [
+      "normal", "fire", "water", "grass", "electric", "ice", "fighting",
+      "poison", "ground", "flying", "psychic", "bug", "rock", "ghost",
+      "dark", "dragon", "steel", "fairy"
+    ];
+
+    let currentPokemon = {};
+    let selectedTypes = new Set();
+
+    async function fetchRandomPokemon() {
+      const maxPokemonId = 1010; // Total number of Pokémon in all gens (adjust as needed)
+      const id = Math.floor(Math.random() * maxPokemonId) + 1;
+      const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+      const data = await res.json();
+      return {
+        name: data.name,
+        sprite: data.sprites.front_default,
+        types: data.types.map(t => t.type.name)
+      };
+    }
+
+    async function newGame() {
+      document.getElementById("feedback").textContent = "";
+      selectedTypes.clear();
+      currentPokemon = await fetchRandomPokemon();
+      document.getElementById("pokemon-name").textContent = currentPokemon.name;
+      document.getElementById("pokemon-img").src = currentPokemon.sprite;
+
+      const buttonsContainer = document.getElementById("type-buttons");
+      buttonsContainer.innerHTML = "";
+
+      types.forEach(type => {
+        const btn = document.createElement("button");
+        btn.textContent = type;
+        btn.onclick = () => toggleType(btn, type);
+        buttonsContainer.appendChild(btn);
+      });
+    }
+
+    function toggleType(button, type) {
+      if (selectedTypes.has(type)) {
+        selectedTypes.delete(type);
+        button.classList.remove("selected");
+      } else {
+        selectedTypes.add(type);
+        button.classList.add("selected");
+      }
+    }
+
+    function submitAnswer() {
+      const correctTypes = new Set(currentPokemon.types);
+      const selected = Array.from(selectedTypes);
+      const correctSelections = selected.filter(t => correctTypes.has(t));
+      const feedback = document.getElementById("feedback");
+
+      if (correctSelections.length === correctTypes.size && selected.length === correctTypes.size) {
+        feedback.textContent = "✅ Correct!";
+      } else if (correctSelections.length > 0) {
+        feedback.textContent = `🟡 Almost! You got ${correctSelections.length} correct. Type(s): ${currentPokemon.types.join(", ")}`;
+      } else {
+        feedback.textContent = `❌ Wrong! Type(s): ${currentPokemon.types.join(", ")}`;
+      }
+    }
+
+    newGame();
+  </script>
+</body>
+</html>
