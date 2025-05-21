@@ -13,14 +13,14 @@
     img {
       height: 150px;
     }
-    .types {
+    .types, .regions {
       display: flex;
       flex-wrap: wrap;
       justify-content: center;
       gap: 10px;
       margin: 1rem 0;
     }
-    .types button {
+    .types button, .regions button {
       padding: 0.5rem 1rem;
       border: none;
       background-color: #eee;
@@ -28,7 +28,7 @@
       border-radius: 5px;
       transition: 0.3s;
     }
-    .types button:hover {
+    .types button:hover, .regions button:hover {
       background-color: #ddd;
     }
     #feedback {
@@ -46,8 +46,11 @@
     <h2 id="pokemon-name"></h2>
     <img id="pokemon-img" src="" alt="Pokémon Sprite" />
     <div class="types" id="type-buttons"></div>
+    <h3>Guess the Region</h3>
+    <div class="regions" id="region-buttons"></div>
     <button onclick="submitAnswer()">Submit</button>
     <p id="feedback"></p>
+    <p id="score"></p>
     <button onclick="newGame()">Next Pokémon</button>
   </div>
 
@@ -58,36 +61,77 @@
       "dark", "dragon", "steel", "fairy"
     ];
 
+    const regions = ["kanto", "johto", "hoenn", "sinnoh", "unova", "kalos", "alola", "galar", "paldea"];
+    const regionMap = [
+      { name: "kanto", max: 151 },
+      { name: "johto", max: 251 },
+      { name: "hoenn", max: 386 },
+      { name: "sinnoh", max: 493 },
+      { name: "unova", max: 649 },
+      { name: "kalos", max: 721 },
+      { name: "alola", max: 809 },
+      { name: "galar", max: 905 },
+      { name: "paldea", max: 1010 }
+    ];
+
     let currentPokemon = {};
     let selectedTypes = new Set();
+    let selectedRegion = null;
+    let score = 0;
+    let round = 1;
+    const maxRounds = 10;
 
     async function fetchRandomPokemon() {
-      const maxPokemonId = 1010; // Total number of Pokémon in all gens (adjust as needed)
+      const maxPokemonId = 1010;
       const id = Math.floor(Math.random() * maxPokemonId) + 1;
       const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
       const data = await res.json();
+      let region = "unknown";
+      for (let r of regionMap) {
+        if (id <= r.max) {
+          region = r.name;
+          break;
+        }
+      }
       return {
+        id: id,
         name: data.name,
         sprite: data.sprites.front_default,
-        types: data.types.map(t => t.type.name)
+        types: data.types.map(t => t.type.name),
+        region: region
       };
     }
 
     async function newGame() {
+      if (round > maxRounds) {
+        document.getElementById("game").innerHTML = `<h2>Game Over!</h2><p>Your final score is ${score}</p>`;
+        return;
+      }
+
       document.getElementById("feedback").textContent = "";
+      document.getElementById("score").textContent = `Round ${round} of ${maxRounds} | Score: ${score}`;
       selectedTypes.clear();
+      selectedRegion = null;
       currentPokemon = await fetchRandomPokemon();
       document.getElementById("pokemon-name").textContent = currentPokemon.name;
       document.getElementById("pokemon-img").src = currentPokemon.sprite;
 
       const buttonsContainer = document.getElementById("type-buttons");
       buttonsContainer.innerHTML = "";
-
       types.forEach(type => {
         const btn = document.createElement("button");
         btn.textContent = type;
         btn.onclick = () => toggleType(btn, type);
         buttonsContainer.appendChild(btn);
+      });
+
+      const regionContainer = document.getElementById("region-buttons");
+      regionContainer.innerHTML = "";
+      regions.forEach(region => {
+        const btn = document.createElement("button");
+        btn.textContent = region;
+        btn.onclick = () => selectRegion(btn, region);
+        regionContainer.appendChild(btn);
       });
     }
 
@@ -101,19 +145,44 @@
       }
     }
 
+    function selectRegion(button, region) {
+      selectedRegion = region;
+      document.querySelectorAll(".regions button").forEach(btn => btn.classList.remove("selected"));
+      button.classList.add("selected");
+    }
+
     function submitAnswer() {
       const correctTypes = new Set(currentPokemon.types);
       const selected = Array.from(selectedTypes);
       const correctSelections = selected.filter(t => correctTypes.has(t));
       const feedback = document.getElementById("feedback");
+      let roundScore = 0;
 
       if (correctSelections.length === correctTypes.size && selected.length === correctTypes.size) {
         feedback.textContent = "✅ Correct!";
+        roundScore += 5;
+      } else if (correctSelections.length === 1 && selected.length === 1) {
+        feedback.textContent = `🟡 Almost! One type correct. Type(s): ${currentPokemon.types.join(", ")}`;
+        roundScore += 3;
+      } else if (correctSelections.length === 1 && selected.length === 2) {
+        feedback.textContent = `🟡 Almost! One correct, one incorrect. Type(s): ${currentPokemon.types.join(", ")}`;
+        roundScore += 2;
       } else if (correctSelections.length > 0) {
-        feedback.textContent = `🟡 Almost! You got ${correctSelections.length} correct. Type(s): ${currentPokemon.types.join(", ")}`;
+        feedback.textContent = `🟡 Partial. ${correctSelections.length} correct. Type(s): ${currentPokemon.types.join(", ")}`;
+        roundScore += correctSelections.length;
       } else {
         feedback.textContent = `❌ Wrong! Type(s): ${currentPokemon.types.join(", ")}`;
       }
+
+      if (selectedRegion === currentPokemon.region) {
+        roundScore += 1;
+        feedback.textContent += ` +1 for region guess!`;
+      } else {
+        feedback.textContent += ` Region was: ${currentPokemon.region}`;
+      }
+
+      score += roundScore;
+      round++;
     }
 
     newGame();
